@@ -3,6 +3,8 @@
 This guide explains how to connect Python to an already-running MATLAB
 session through the MATLAB Engine API.
 
+For python-matlab connection config, see https://xoofee.github.io/posts/2026/09/connect-matlab-r2020a-python-engine-ubuntu/
+
 ## Default execution workflow
 
 MATLAB `.m` files and MATLAB command lines should be run from Python in the
