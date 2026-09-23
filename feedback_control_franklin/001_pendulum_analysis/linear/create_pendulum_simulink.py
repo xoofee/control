@@ -6,7 +6,7 @@ the continuous-time equation
 
     theta_ddot = torque / (m*l^2) - (g/l)*theta
 
-which is equivalent to pendulum_analysis.m's transfer function.
+which is equivalent to pendulum_analysis_linear_approx.m's transfer function.
 """
 
 from __future__ import annotations
@@ -27,11 +27,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--gravity", type=float, default=9.81, help="Gravitational acceleration in m/s^2."
     )
+    parser.add_argument("--torque", type=float, default=1.0, help="Applied torque in N*m.")
     parser.add_argument(
         "--session", default="matlab", help="Shared MATLAB session name."
     )
     parser.add_argument(
-        "--model-name", default="pendulum_simulink", help="Name of the Simulink model."
+        "--model-name",
+        default="pendulum_simulink",
+        help="Name of the Simulink model.",
     )
     return parser.parse_args()
 
@@ -46,7 +49,7 @@ def main() -> None:
     if args.mass <= 0 or args.length <= 0 or args.gravity <= 0:
         raise ValueError("mass, length, and gravity must all be positive")
 
-    output_path = Path(__file__).resolve().with_name(f"{args.model_name}.slx")
+    output_path = Path(__file__).resolve().with_name("pendulum_simulink.slx")
     torque_gain = 1.0 / (args.mass * args.length**2)
     gravity_gain = args.gravity / args.length
 
@@ -69,17 +72,14 @@ def main() -> None:
         eng.open_system(model, nargout=0)
 
         blocks = {
-            "step": ("simulink/Sources/Step", [30, 90, 120, 120]),
-            "sum": ("simulink/Math Operations/Sum", [220, 82, 250, 128]),
-            "torque_gain": ("simulink/Math Operations/Gain", [290, 75, 390, 115]),
-            "velocity": ("simulink/Continuous/Integrator", [430, 75, 460, 115]),
-            "angle": ("simulink/Continuous/Integrator", [510, 75, 540, 115]),
-            "gravity_gain": ("simulink/Math Operations/Gain", [285, 175, 385, 215]),
-            "scope": ("simulink/Sinks/Scope", [620, 72, 680, 128]),
-            "to_workspace": (
-                "simulink/Sinks/To Workspace",
-                [610, 155, 730, 185],
-            ),
+            "step": ("simulink/Sources/Step", [30, 75, 120, 105]),
+            "torque_gain": ("simulink/Math Operations/Gain", [150, 65, 250, 105]),
+            "sum": ("simulink/Math Operations/Sum", [290, 65, 320, 111]),
+            "velocity": ("simulink/Continuous/Integrator", [370, 65, 400, 105]),
+            "angle": ("simulink/Continuous/Integrator", [450, 65, 480, 105]),
+            "gravity_gain": ("simulink/Math Operations/Gain", [370, 180, 470, 220]),
+            "rad2deg": ("simulink/Math Operations/Gain", [520, 65, 600, 105]),
+            "scope": ("simulink/Sinks/Scope", [660, 67, 720, 113]),
         }
         for name, (library_path, position) in blocks.items():
             eng.add_block(
@@ -97,11 +97,11 @@ def main() -> None:
             "Before",
             "0",
             "After",
-            "1",
+            matlab_string(args.torque),
             nargout=0,
         )
         eng.set_param(
-            f"{model}/sum", "Inputs", "+-", "IconShape", "round", nargout=0
+            f"{model}/sum", "Inputs", "|+-", "IconShape", "round", nargout=0
         )
         eng.set_param(
             f"{model}/torque_gain",
@@ -109,23 +109,40 @@ def main() -> None:
             matlab_string(torque_gain),
             nargout=0,
         )
-        eng.set_param(f"{model}/gravity_gain", "Gain", matlab_string(gravity_gain), nargout=0)
         eng.set_param(
-            f"{model}/to_workspace",
-            "VariableName",
-            "pendulum_angle",
-            "SaveFormat",
-            "Structure With Time",
+            f"{model}/gravity_gain",
+            "Gain",
+            matlab_string(gravity_gain),
+            "Orientation",
+            "left",
+            nargout=0,
+        )
+        eng.set_param(f"{model}/rad2deg", "Gain", "180/pi", nargout=0)
+        eng.set_param(
+            f"{model}/scope",
+            "Decimation",
+            "1",
+            "LimitDataPoints",
+            "off",
+            nargout=0,
+        )
+        for name in ("torque_gain", "sum", "velocity", "angle", "gravity_gain", "rad2deg"):
+            eng.set_param(f"{model}/{name}", "ShowName", "off", nargout=0)
+
+        eng.eval(
+            f"note = Simulink.Annotation('{model}/gravity_gain_label'); "
+            "note.Text = 'gravity gain'; "
+            "note.position = [370 235 470 250];",
             nargout=0,
         )
 
         lines = [
-            ("step/1", "sum/1"),
-            ("sum/1", "torque_gain/1"),
-            ("torque_gain/1", "velocity/1"),
+            ("step/1", "torque_gain/1"),
+            ("torque_gain/1", "sum/1"),
+            ("sum/1", "velocity/1"),
             ("velocity/1", "angle/1"),
-            ("angle/1", "scope/1"),
-            ("angle/1", "to_workspace/1"),
+            ("angle/1", "rad2deg/1"),
+            ("rad2deg/1", "scope/1"),
             ("angle/1", "gravity_gain/1"),
             ("gravity_gain/1", "sum/2"),
         ]
@@ -138,6 +155,10 @@ def main() -> None:
             "10",
             "Solver",
             "ode45",
+            "SolverType",
+            "Variable-step",
+            "MaxStep",
+            "0.01",
             "SaveOutput",
             "on",
             nargout=0,

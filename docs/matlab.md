@@ -99,18 +99,19 @@ root with:
 
 ```bash
 source ~/pyenvs/matlab/bin/activate
-python feedback_control_franklin/001_run_pendulum_analysis.py --mass 1 --length 1 --gravity 9.81
+python feedback_control_franklin/001_pendulum_analysis/linear/run_pendulum_analysis_linear_approx.py \
+  --mass 1 --length 1 --gravity 9.81 --torque 1
 ```
 
 The runner connects to the existing shared session, adds the repository to the
-MATLAB path, and calls `pendulum_analysis.m`. The analysis treats the input as
-applied torque and the output as pendulum angle, then displays the unit-step,
-impulse, and Bode plots in MATLAB.
+MATLAB path, and calls `pendulum_analysis_linear_approx.m`. The analysis treats
+the input as applied torque and the output as
+pendulum angle, then displays the unit-step, impulse, and Bode plots in MATLAB.
 
 The MATLAB function can also be called from Python with different parameters:
 
 ```python
-eng.pendulum_analysis(0.5, 0.8, 9.81, nargout=0)
+eng.pendulum_analysis_linear_approx(0.5, 0.8, 9.81, nargout=0)
 ```
 
 The runner does not start MATLAB automatically. If the shared session is not
@@ -119,6 +120,24 @@ available, share the already-running MATLAB session first:
 ```matlab
 matlab.engine.shareEngine('matlab')
 ```
+
+For the nonlinear pendulum model, run the ODE-based analysis with:
+
+```bash
+python feedback_control_franklin/001_pendulum_analysis/nonlinear/run_pendulum_analysis_nonlinear.py \
+  --mass 1 --length 1 --gravity 9.81 --torque 1 --duration 10
+```
+
+The nonlinear Simulink model can be regenerated with:
+
+```bash
+python feedback_control_franklin/001_pendulum_analysis/nonlinear/create_pendulum_simulink_nonlinear.py \
+  --mass 1 --length 1 --gravity 9.81 --torque 1
+```
+
+Unlike the linear model, the nonlinear model includes a `sin(theta)` block in
+the gravity feedback path and cannot be represented by one fixed transfer
+function.
 
 ### MATLAB was closed
 

@@ -1,3 +1,4 @@
 /books/
 *.slx
 *.slx.autosave
+*.pyc
