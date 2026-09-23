@@ -99,7 +99,7 @@ root with:
 
 ```bash
 source ~/pyenvs/matlab/bin/activate
-python run_pendulum_analysis.py --mass 1 --length 1 --gravity 9.81
+python feedback_control_franklin/001_run_pendulum_analysis.py --mass 1 --length 1 --gravity 9.81
 ```
 
 The runner connects to the existing shared session, adds the repository to the
